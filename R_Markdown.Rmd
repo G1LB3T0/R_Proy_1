@@ -118,5 +118,58 @@ kable(tabla_diccionario,
       caption = "Tabla 1: Diccionario de Variables (Significado y Tipología)",
       align = "l")
 ```
-
 La tabla anterior presenta la estructura semántica del conjunto de datos consolidado, detallando las 32 variables disponibles tras la extracción de metadatos de los archivos fuente (.sav). Se observa una predominancia de variables categóricas nominales (como sexo, caudef y códigos geográficos) que permitirán la segmentación de la población, complementadas por variables numéricas discretas (como edadif y fechas de ocurrencia) esenciales para el análisis de distribuciones y series temporales. Esta caracterización valida que se cuenta con los atributos demográficos y médicos necesarios.
+
+
+## Exploración de variables numéricas
+```{r limpieza_de_variables_numericas}
+df_numerico_final <- df_defunciones %>%
+  mutate(
+    valor_edad = as.numeric(edadif),
+    unidad_tiempo = as.numeric(perdif),
+    
+    # LÓGICA CORREGIDA:
+    edad_calculada = case_when(
+      # El código 3 es AÑOS
+      unidad_tiempo == 3 ~ valor_edad,
+      
+      # El código 2 es MESES
+      unidad_tiempo == 2 ~ valor_edad / 12,
+      
+      # El código 1 es DÍAS
+      unidad_tiempo == 1 ~ valor_edad / 365.25,
+      
+      # El 9 es Ignorado/NA
+      unidad_tiempo == 9 ~ NA_real_,
+      
+      TRUE ~ NA_real_
+    )
+  ) %>%
+  filter(!is.na(edad_calculada)) # Quitamos los ignorados
+```
+Para habilitar el análisis numérico, se implementó un algoritmo de limpieza condicional orientado a unificar la heterogeneidad de las unidades de medida originales (horas, días, meses y años) en una única escala continua de años calendario. El procedimiento transforma la variable edadif basándose en el código temporal perdif: se preservan los valores anuales directos (código 3), se normalizan los meses dividiendo por 12 (código 2) y los días por 365.25 (código 1), filtrando finalmente cualquier registro inconsistente o ignorado para garantizar la validez de los estadísticos descriptivos subsiguientes.
+
+
+### Medidas de tendencia central, distribución y orden.
+```{r Cálculo de Estadísticos (Tendencia Central y Orden)}
+tabla_final <- df_numerico_final %>%
+  summarise(
+    Promedio = mean(edad_calculada),
+    Mediana = median(edad_calculada),
+    Desviacion = sd(edad_calculada),
+    Minimo = min(edad_calculada),
+    Maximo = max(edad_calculada),
+     # El 25% muere antes de esta edad
+    Q1_25 = quantile(edad_calculada, 0.25),
+     # El 75% muere antes de esta edad
+    Q3_75 = quantile(edad_calculada, 0.75)
+  )
+
+
+# Mostrar la tabla formateada
+knitr::kable(tabla_final, digits = 2, caption = "Estadísticos de Edad")
+```
+El análisis estadístico revela una distribución asimétrica negativa, evidenciada por un promedio de 54.92 años que es inferior a la mediana de 62 años; esta diferencia sugiere que, si bien el punto de equilibrio central se ubica en la adultez mayor, la incidencia de mortalidad en edades tempranas ejerce una fuerte influencia a la baja sobre la media. La variabilidad de los datos es alta, reflejada en una desviación estándar de 28.39 años que abarca un rango biológico completo desde el nacimiento (0 años) hasta una longevidad máxima de 122 años. En cuanto a las medidas de posición, se observa que el primer cuartil se sitúa en 35 años, indicando que el 25% de las defunciones ocurren en la población joven, mientras que el tercer cuartil alcanza los 78 años, lo que confirma que la mayor densidad de fallecimientos se concentra hacia la tercera edad.
+
+
+
