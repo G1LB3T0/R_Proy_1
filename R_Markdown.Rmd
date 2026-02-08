@@ -1,0 +1,11 @@
+---
+title: "PROYECTO 1"
+author: "Grupo 4"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
