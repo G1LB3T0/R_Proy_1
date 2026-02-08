@@ -9,3 +9,56 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r}
+library(tidyverse)
+library(haven)
+library(janitor)
+library(fs)
+```
+
+
+```{r}
+unir_spss_blindado <- function(ruta_carpeta) {
+  
+  # 1. Detectar archivos .sav
+  archivos <- dir_ls(ruta_carpeta, glob = "*.sav")
+  
+  if(length(archivos) == 0) {
+    stop("¡Error! No encontré ningún archivo .sav en esa carpeta.")
+  }
+  
+  message(paste("Se encontraron", length(archivos), "archivos. Iniciando unión segura..."))
+  
+  # 2. Definir la lógica de lectura individual (La estrategia segura)
+  leer_y_normalizar <- function(archivo) {
+    # Mensaje para ver progreso
+    message(paste("  -> Procesando:", path_file(archivo)))
+    
+    read_sav(archivo) %>%
+      # a. Estandarizar nombres (quita mayúsculas, espacios, tildes)
+      clean_names() %>% 
+      # b. Eliminar etiquetas de SPSS (evita conflictos de atributos)
+      zap_labels() %>% 
+      # c. Convertir TODO a texto (evita errores de tipo numérico vs carácter)
+      mutate(across(everything(), as.character))
+  }
+  
+  # 3. Mapear y Unir (Aquí ocurre la magia)
+  # .id crea una columna con el nombre del archivo original
+  df_unido <- map_dfr(archivos, leer_y_normalizar, .id = "origen_archivo")
+  
+  message("Unión completada. Restaurando tipos de datos...")
+  
+  # 4. Restaurar tipos (Detectar números reales)
+  df_final <- df_unido %>%
+    type_convert(col_types = cols()) # Silencioso para no llenar la consola
+    
+  return(df_final)
+}
+```
+
+```{r}
+df_defunciones <- unir_spss_blindado("./Defunciones")
+```
+
+
