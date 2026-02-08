@@ -17,6 +17,7 @@ library(fs)
 library(ggplot2)
 library(labelled)
 library(knitr)
+library(kableExtra)
 ```
 
 
@@ -172,4 +173,66 @@ knitr::kable(tabla_final, digits = 2, caption = "Estadísticos de Edad")
 El análisis estadístico revela una distribución asimétrica negativa, evidenciada por un promedio de 54.92 años que es inferior a la mediana de 62 años; esta diferencia sugiere que, si bien el punto de equilibrio central se ubica en la adultez mayor, la incidencia de mortalidad en edades tempranas ejerce una fuerte influencia a la baja sobre la media. La variabilidad de los datos es alta, reflejada en una desviación estándar de 28.39 años que abarca un rango biológico completo desde el nacimiento (0 años) hasta una longevidad máxima de 122 años. En cuanto a las medidas de posición, se observa que el primer cuartil se sitúa en 35 años, indicando que el 25% de las defunciones ocurren en la población joven, mientras que el tercer cuartil alcanza los 78 años, lo que confirma que la mayor densidad de fallecimientos se concentra hacia la tercera edad.
 
 
+##Exploracion de variables categoricas
+
+```{r}
+# 1. Definición de Variables
+vars_analisis <- c(
+  "sexo",    "areag",    "ecidif",   "escodif", 
+  "depocu",  "mupocu",   "ocur",                
+  "caudef",  "asist",    "cerdef",              
+  "getdif",  "ocudif",   "nacdif",              
+  "anoreg",  "anoocu",   "perdif"               
+)
+
+vars_existentes <- intersect(vars_analisis, names(df_defunciones))
+
+for (var_actual in vars_existentes) {
+  
+  
+  tabla_base <- df_defunciones %>%
+    filter(!is.na(.data[[var_actual]])) %>%
+    mutate(across(all_of(var_actual), as.character)) %>% 
+    count(.data[[var_actual]], sort = TRUE, name = "Frecuencia") %>%
+    mutate(Porcentaje = round((Frecuencia / sum(Frecuencia)) * 100, 2))
+  
+  
+  if(nrow(tabla_base) > 12) {
+    top_10 <- head(tabla_base, 10)
+    resto <- tabla_base %>%
+      slice(11:n()) %>%
+      summarise(
+        Var = paste("OTRAS (", n(), " Categorías)", sep=""),
+        Frecuencia = sum(Frecuencia),
+        Porcentaje = sum(Porcentaje)
+      )
+    names(resto)[1] <- var_actual
+    tabla_final <- bind_rows(top_10, resto)
+  } else {
+    tabla_final <- tabla_base
+  }
+  
+  colnames(tabla_final) <- c("Categoría", "Frecuencia (N)", "Porcentaje (%)")
+  
+  print(
+    kable(
+      tabla_final, 
+      caption = paste("Distribución:", toupper(var_actual)),
+      align = "c",
+      digits = 2,
+      format.args = list(big.mark = ",")
+    ) %>%
+    # ESTILOS VISUALES:
+    kable_styling(
+      bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+      full_width = FALSE, 
+      position = "center",
+      font_size = 14
+    ) %>%
+    row_spec(0, bold = TRUE, color = "white", background = "#2c3e50")
+  )
+  
+  cat("\n\n<br>\n\n") 
+}
+```
 
