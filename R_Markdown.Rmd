@@ -16,6 +16,7 @@ library(janitor)
 library(fs)
 library(ggplot2)
 library(labelled)
+library(knitr)
 ```
 
 
@@ -73,4 +74,46 @@ cat("Cantidad de Observaciones (Filas):", format(total_observaciones, big.mark="
 cat("Cantidad de Variables (Columnas):", total_variables, "\n")
 ```
 El conjunto de datos consolidado, que abarca el período de 2012 a 2022, presenta una estructura robusta para el análisis de minería. Se identificaron un total de 950,793 observaciones; cada fila representa un registro único de defunción procesado por el INE, lo que constituye un volumen de datos estadísticamente significativo para detectar patrones de mortalidad a nivel nacional. En cuanto a la dimensionalidad, el dataset cuenta con 32 variables (columnas). Estos atributos contienen la información multidimensional de cada suceso, integrando datos geográficos, demográficos y médicos necesarios para la segmentación y el modelado predictivo.
+
+
+```{r Significado_y_tipo_de_cada_una_de_las_variables}
+# Cargar metadatos originales (usar el primer archivo .sav como referencia)
+archivo_ref <- dir_ls("./Defunciones", glob = "*.sav")[1]
+datos_ref <- read_sav(archivo_ref) %>% janitor::clean_names()
+etiquetas <- var_label(datos_ref)
+
+# Definir lógica para el "Tipo de Variable" (Para que no salga todo como 'texto')
+obtener_tipo_real <- function(nombre_var) {
+  if (str_detect(nombre_var, "^(edad|anio|mes|dia|cant|total)")) {
+    return("Numérico (Discreto)")
+  } else if (str_detect(nombre_var, "^(fecha)")) {
+    return("Fecha")
+  } else {
+    return("Categórico (Nominal)")
+  }
+}
+
+# 3. Crear la Tabla Maestra
+tabla_diccionario <- tibble(
+  Variable = names(df_defunciones)
+) %>%
+  mutate(
+    # A. Obtener el significado original
+    Significado = map_chr(Variable, function(x) {
+      lbl <- etiquetas[[x]]
+      if (is.null(lbl)) return("Variable de Control / ID") else return(as.character(lbl))
+    }),
+    
+    # B. Definir el tipo de dato lógico para el reporte
+    Tipo_Variable = map_chr(Variable, obtener_tipo_real)
+  ) %>%
+  select(Variable, Tipo_Variable, Significado)
+
+# 4. Mostrar la tabla
+kable(tabla_diccionario, 
+      caption = "Tabla 1: Diccionario de Variables (Significado y Tipología)",
+      align = "l")
+```
+
+La tabla anterior presenta la estructura semántica del conjunto de datos consolidado, detallando las 32 variables disponibles tras la extracción de metadatos de los archivos fuente (.sav). Se observa una predominancia de variables categóricas nominales (como sexo, caudef y códigos geográficos) que permitirán la segmentación de la población, complementadas por variables numéricas discretas (como edadif y fechas de ocurrencia) esenciales para el análisis de distribuciones y series temporales. Esta caracterización valida que se cuenta con los atributos demográficos y médicos necesarios.
 
